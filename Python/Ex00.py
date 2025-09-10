@@ -1,8 +1,0 @@
-m=int(input('Digite numero inteiro: '))
-print(type(m))
-n=float(input('Digite numero e .: '))
-print(type(n))
-o=bool(input('Digite v ou f: '))
-print(type(o))
-p=str(input('Digite texto: '))
-print(type(p))
