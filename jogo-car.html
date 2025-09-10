@@ -2,17 +2,17 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>Jogo de Carro com Buzina</title>
+  <title>Jogo de Carro 🚗</title>
   <style>
     body {
       margin: 0;
       overflow: hidden;
-      background: #222;
+      background: #111;
     }
     canvas {
       display: block;
       margin: 0 auto;
-      background: #444;
+      background: #333;
       border: 2px solid #fff;
     }
     #gameOver {
@@ -24,54 +24,61 @@
       color: red;
       display: none;
       font-family: sans-serif;
+      text-shadow: 2px 2px 8px black;
     }
   </style>
 </head>
 <body>
   <canvas id="gameCanvas" width="400" height="600"></canvas>
-  <div id="gameOver">💥 Game Over!</div>
+  <div id="gameOver">💥 GAME OVER!</div>
 
   <script>
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
 
+    // 🔊 Sons
+    const buzina = new Audio("buzina.mp3");   // sua buzina
+    const gemido = new Audio("gemido.mp3");   // som de "gemido" (substitua pelo arquivo que quiser)
+
+    buzina.volume = 1.0;
+    gemido.volume = 1.0;
+
+    // 🚗 Imagens
+    const carImg = new Image();
+    carImg.src = "carro.png"; // carro do jogador (formato vertical)
+
+    const obsImg = new Image();
+    obsImg.src = "obstaculo.png"; // carros obstáculos
+
     const car = {
       x: 180,
       y: 500,
-      width: 40,
-      height: 80,
-      color: "blue",
+      width: 50,
+      height: 90,
       speed: 10
     };
 
     const obstacles = [];
     let gameRunning = true;
 
-    // 🔊 Som de buzina local
-    const buzina = new Audio("buzina.mp3");
-    buzina.volume = 1.0;
-
     function createObstacle() {
       const obs = {
-        x: Math.random() * (canvas.width - 40),
-        y: -80,
-        width: 40,
-        height: 80,
-        color: "red",
+        x: Math.random() * (canvas.width - 50),
+        y: -100,
+        width: 50,
+        height: 90,
         speed: 4
       };
       obstacles.push(obs);
     }
 
     function drawCar() {
-      ctx.fillStyle = car.color;
-      ctx.fillRect(car.x, car.y, car.width, car.height);
+      ctx.drawImage(carImg, car.x, car.y, car.width, car.height);
     }
 
     function drawObstacles() {
       obstacles.forEach(obs => {
-        ctx.fillStyle = obs.color;
-        ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+        ctx.drawImage(obsImg, obs.x, obs.y, obs.width, obs.height);
       });
     }
 
@@ -91,6 +98,8 @@
         ) {
           gameRunning = false;
           document.getElementById("gameOver").style.display = "block";
+          gemido.currentTime = 0;
+          gemido.play().catch(err => console.log("Erro ao tocar gemido:", err));
         }
       });
     }
@@ -129,3 +138,5 @@
   </script>
 </body>
 </html>
+
+
