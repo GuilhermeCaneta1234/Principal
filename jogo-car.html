@@ -39,6 +39,7 @@
   <canvas id="gameCanvas" width="400" height="600"></canvas>
   <div id="gameOver">💥 Game Over!</div>
   <div id="levelDisplay">Nível: 1</div>
+
   <script>
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
@@ -61,8 +62,13 @@
 
     const buzina = new Audio("buzina.mp3");
     const gemido = new Audio("explosao.mp3");
+    const trilha = new Audio("comedia.mp3"); // 🎵 trilha sonora
     buzina.volume = 1.0;
     gemido.volume = 1.0;
+    trilha.volume = 0.5;
+    trilha.loop = true;
+
+    let trilhaTocando = false; // só começa quando o jogador interagir
 
     function createObstacle() {
       const obs = {
@@ -159,6 +165,7 @@
           document.getElementById("gameOver").style.display = "block";
           gemido.currentTime = 0;
           gemido.play().catch(err => console.log("Erro ao tocar gemido:", err));
+          trilha.pause(); // pausa trilha ao perder
         }
 
         bullets.forEach((b, j) => {
@@ -199,13 +206,15 @@
     }, 1500);
 
     document.addEventListener("keydown", (e) => {
+      // 🔊 inicia trilha no primeiro comando
+      if (!trilhaTocando) {
+        trilha.play().catch(err => console.log("Erro ao tocar trilha:", err));
+        trilhaTocando = true;
+      }
+
       if (!gameRunning) return;
-      if (e.key === "ArrowLeft" && car.x > 100) {
-        car.x -= car.speed;
-      }
-      if (e.key === "ArrowRight" && car.x + car.width < 300) {
-        car.x += car.speed;
-      }
+      if (e.key === "ArrowLeft" && car.x > 100) car.x -= car.speed;
+      if (e.key === "ArrowRight" && car.x + car.width < 300) car.x += car.speed;
       if (e.key.toLowerCase() === "b") {
         buzina.currentTime = 0;
         buzina.play().catch(err => console.log("Erro ao tocar buzina:", err));
