@@ -2,18 +2,19 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>Jogo de Carro 🚗</title>
+  <title>Perseguição Pastel</title>
   <style>
     body {
       margin: 0;
       overflow: hidden;
-      background: #111;
+      background: #fdf6e3;
+      font-family: 'Segoe UI', sans-serif;
     }
     canvas {
       display: block;
       margin: 0 auto;
-      background: #333;
-      border: 2px solid #fff;
+      background: #fdf6e3;
+      border: 2px solid #ccc;
     }
     #gameOver {
       position: absolute;
@@ -21,64 +22,116 @@
       left: 50%;
       transform: translate(-50%, -50%);
       font-size: 48px;
-      color: red;
+      color: #ff6b6b;
       display: none;
-      font-family: sans-serif;
-      text-shadow: 2px 2px 8px black;
+    }
+    #levelDisplay {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 20px;
+      color: #333;
     }
   </style>
 </head>
 <body>
   <canvas id="gameCanvas" width="400" height="600"></canvas>
-  <div id="gameOver">💥 GAME OVER!</div>
-
+  <div id="gameOver">💥 Game Over!</div>
+  <div id="levelDisplay">Nível: 1</div>
   <script>
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
 
-    // 🔊 Sons
-    const buzina = new Audio("buzina.mp3");   // sua buzina
-    const gemido = new Audio("gemido.mp3");   // som de "gemido" (substitua pelo arquivo que quiser)
-
-    buzina.volume = 1.0;
-    gemido.volume = 1.0;
-
-    // 🚗 Imagens
-    const carImg = new Image();
-    carImg.src = "carro.png"; // carro do jogador (formato vertical)
-
-    const obsImg = new Image();
-    obsImg.src = "obstaculo.png"; // carros obstáculos
-
     const car = {
       x: 180,
       y: 500,
-      width: 50,
-      height: 90,
+      width: 40,
+      height: 80,
+      color: "#6c91bf",
       speed: 10
     };
 
     const obstacles = [];
+    const bullets = [];
     let gameRunning = true;
+    let level = 1;
+    let kills = 0;
+    let killsToLevelUp = 5;
+
+    const buzina = new Audio("buzina.mp3");
+    const gemido = new Audio("explosao.mp3");
+    buzina.volume = 1.0;
+    gemido.volume = 1.0;
 
     function createObstacle() {
       const obs = {
-        x: Math.random() * (canvas.width - 50),
-        y: -100,
-        width: 50,
-        height: 90,
-        speed: 4
+        x: 100 + Math.random() * 160,
+        y: -80,
+        width: 40,
+        height: 80,
+        color: "#b0bec5",
+        speed: 2 + level
       };
       obstacles.push(obs);
     }
 
+    function drawBackground() {
+      ctx.fillStyle = "#ccebc5";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.fillStyle = "#e0e0e0";
+      ctx.fillRect(100, 0, 200, canvas.height);
+
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 2;
+      for (let y = 0; y < canvas.height; y += 40) {
+        ctx.beginPath();
+        ctx.moveTo(200, y);
+        ctx.lineTo(200, y + 20);
+        ctx.stroke();
+      }
+    }
+
     function drawCar() {
-      ctx.drawImage(carImg, car.x, car.y, car.width, car.height);
+      ctx.fillStyle = car.color;
+      ctx.beginPath();
+      ctx.moveTo(car.x, car.y + car.height);
+      ctx.lineTo(car.x + 10, car.y + 20);
+      ctx.lineTo(car.x + car.width - 10, car.y + 20);
+      ctx.lineTo(car.x + car.width, car.y + car.height);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = "#ffb3ba";
+      ctx.fillRect(car.x + 12, car.y + 30, car.width - 24, 10);
+
+      ctx.fillStyle = "#555";
+      ctx.fillRect(car.x - 5, car.y + car.height - 10, 10, 10);
+      ctx.fillRect(car.x + car.width - 5, car.y + car.height - 10, 10, 10);
     }
 
     function drawObstacles() {
       obstacles.forEach(obs => {
-        ctx.drawImage(obsImg, obs.x, obs.y, obs.width, obs.height);
+        ctx.fillStyle = obs.color;
+        ctx.beginPath();
+        ctx.moveTo(obs.x, obs.y + obs.height);
+        ctx.lineTo(obs.x + 10, obs.y + 20);
+        ctx.lineTo(obs.x + obs.width - 10, obs.y + 20);
+        ctx.lineTo(obs.x + obs.width, obs.y + obs.height);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = "#555";
+        ctx.fillRect(obs.x - 5, obs.y + obs.height - 10, 10, 10);
+        ctx.fillRect(obs.x + obs.width - 5, obs.y + obs.height - 10, 10, 10);
+      });
+    }
+
+    function drawBullets() {
+      ctx.fillStyle = "#ffd54f";
+      bullets.forEach(b => {
+        ctx.fillRect(b.x, b.y, b.width, b.height);
       });
     }
 
@@ -88,8 +141,14 @@
       });
     }
 
+    function moveBullets() {
+      bullets.forEach(b => {
+        b.y -= b.speed;
+      });
+    }
+
     function checkCollision() {
-      obstacles.forEach(obs => {
+      obstacles.forEach((obs, i) => {
         if (
           car.x < obs.x + obs.width &&
           car.x + car.width > obs.x &&
@@ -101,18 +160,37 @@
           gemido.currentTime = 0;
           gemido.play().catch(err => console.log("Erro ao tocar gemido:", err));
         }
+
+        bullets.forEach((b, j) => {
+          if (
+            b.x < obs.x + obs.width &&
+            b.x + b.width > obs.x &&
+            b.y < obs.y + obs.height &&
+            b.y + b.height > obs.y
+          ) {
+            obstacles.splice(i, 1);
+            bullets.splice(j, 1);
+            kills++;
+            if (kills >= killsToLevelUp) {
+              level++;
+              kills = 0;
+              document.getElementById("levelDisplay").textContent = "Nível: " + level;
+            }
+          }
+        });
       });
     }
 
     function update() {
       if (!gameRunning) return;
-
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawBackground();
       drawCar();
       drawObstacles();
+      drawBullets();
       moveObstacles();
+      moveBullets();
       checkCollision();
-
       requestAnimationFrame(update);
     }
 
@@ -122,15 +200,24 @@
 
     document.addEventListener("keydown", (e) => {
       if (!gameRunning) return;
-      if (e.key === "ArrowLeft" && car.x > 0) {
+      if (e.key === "ArrowLeft" && car.x > 100) {
         car.x -= car.speed;
       }
-      if (e.key === "ArrowRight" && car.x + car.width < canvas.width) {
+      if (e.key === "ArrowRight" && car.x + car.width < 300) {
         car.x += car.speed;
       }
       if (e.key.toLowerCase() === "b") {
         buzina.currentTime = 0;
         buzina.play().catch(err => console.log("Erro ao tocar buzina:", err));
+      }
+      if (e.key === " ") {
+        bullets.push({
+          x: car.x + car.width / 2 - 2,
+          y: car.y,
+          width: 4,
+          height: 10,
+          speed: 8
+        });
       }
     });
 
@@ -138,5 +225,3 @@
   </script>
 </body>
 </html>
-
-
