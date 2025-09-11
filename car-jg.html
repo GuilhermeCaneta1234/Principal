@@ -2,12 +2,12 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>Carro 3D</title>
+  <title>Perseguição Pastel 3D</title>
   <style>
     body {
       margin: 0;
       overflow: hidden;
-      background: #000;
+      background: #87ceeb; /* céu azul */
     }
     #gameOver {
       position: absolute;
@@ -15,92 +15,165 @@
       left: 50%;
       transform: translate(-50%, -50%);
       font-size: 48px;
-      color: red;
-      font-family: sans-serif;
+      color: #ff6b6b;
       display: none;
+      font-family: Arial, sans-serif;
+    }
+    #startBtn {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      padding: 20px 40px;
+      font-size: 24px;
+      cursor: pointer;
+      border: none;
+      border-radius: 12px;
+      background: #4caf50;
+      color: white;
+      font-family: Arial, sans-serif;
     }
   </style>
 </head>
 <body>
   <div id="gameOver">💥 Game Over!</div>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+  <button id="startBtn">▶ Iniciar Jogo</button>
+  
+  <!-- Three.js -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.156.1/build/three.min.js"></script>
+  
   <script>
     let scene, camera, renderer;
     let car, obstacles = [];
-    let gameRunning = true;
+    let gameRunning = false;
 
-    init();
-    animate();
+    // Sons
+    const soundtrack = new Audio("comedia.mp3");
+    soundtrack.loop = true;
+    soundtrack.volume = 0.5;
+
+    const buzina = new Audio("buzina.mp3");
+    buzina.volume = 1.0;
+
+    const explosao = new Audio("explosao.mp3");
+    explosao.volume = 1.0;
 
     function init() {
       scene = new THREE.Scene();
-      camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-      camera.position.z = 10;
-      camera.position.y = 5;
-      camera.lookAt(0, 0, 0);
 
-      renderer = new THREE.WebGLRenderer();
+      // Câmera
+      camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+      camera.position.set(0, 6, 15);
+
+      // Renderizador
+      renderer = new THREE.WebGLRenderer({ antialias: true });
       renderer.setSize(window.innerWidth, window.innerHeight);
       document.body.appendChild(renderer.domElement);
 
-      // Carro
-      const carGeometry = new THREE.BoxGeometry(1, 1, 2);
-      const carMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-      car = new THREE.Mesh(carGeometry, carMaterial);
-      car.position.y = 0.5;
+      // Luz
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+      scene.add(ambientLight);
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+      directionalLight.position.set(10, 20, 10);
+      scene.add(directionalLight);
+
+      // Carro realista
+      car = new THREE.Group();
+
+      const bodyGeometry = new THREE.BoxGeometry(2, 1, 4);
+      const bodyMaterial = new THREE.MeshPhongMaterial({ color: 0x1e90ff });
+      const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+      body.position.y = 0.5;
+      car.add(body);
+
+      const roofGeometry = new THREE.BoxGeometry(1.4, 0.6, 2);
+      const roofMaterial = new THREE.MeshPhongMaterial({ color: 0xffffff });
+      const roof = new THREE.Mesh(roofGeometry, roofMaterial);
+      roof.position.y = 1.1;
+      car.add(roof);
+
+      const wheelGeometry = new THREE.CylinderGeometry(0.4, 0.4, 0.3, 32);
+      const wheelMaterial = new THREE.MeshPhongMaterial({ color: 0x000000 });
+      for (let i of [-1, 1]) {
+        for (let j of [-1, 1]) {
+          const wheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
+          wheel.rotation.z = Math.PI / 2;
+          wheel.position.set(i * 1.1, 0.2, j * 1.5);
+          car.add(wheel);
+        }
+      }
       scene.add(car);
 
-      // Chão
-      const groundGeometry = new THREE.PlaneGeometry(20, 100);
-      const groundMaterial = new THREE.MeshBasicMaterial({ color: 0x333333 });
-      const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-      ground.rotation.x = -Math.PI / 2;
-      ground.position.y = 0;
-      scene.add(ground);
+      const roadGeometry = new THREE.PlaneGeometry(12, 200);
+      const roadMaterial = new THREE.MeshPhongMaterial({ color: 0x555555 });
+      const road = new THREE.Mesh(roadGeometry, roadMaterial);
+      road.rotation.x = -Math.PI / 2;
+      scene.add(road);
 
-      // Luz
-      const light = new THREE.AmbientLight(0xffffff);
-      scene.add(light);
+      // Inicia o loop
+      animate();
+      setInterval(createObstacle, 1500);
+    }
 
-      // Obstáculos
-      setInterval(() => {
-        if (!gameRunning) return;
-        const obsGeo = new THREE.BoxGeometry(1, 1, 1);
-        const obsMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-        const obs = new THREE.Mesh(obsGeo, obsMat);
-        obs.position.set((Math.random() - 0.5) * 10, 0.5, -50);
-        scene.add(obs);
-        obstacles.push(obs);
-      }, 1500);
-
-      // Controles
-      document.addEventListener("keydown", (e) => {
-        if (!gameRunning) return;
-        if (e.key === "ArrowLeft" && car.position.x > -9) car.position.x -= 1;
-        if (e.key === "ArrowRight" && car.position.x < 9) car.position.x += 1;
-      });
+    function createObstacle() {
+      if (!gameRunning) return;
+      const obsGeometry = new THREE.BoxGeometry(2, 1, 4);
+      const obsMaterial = new THREE.MeshPhongMaterial({ color: 0xb0bec5 });
+      const obstacle = new THREE.Mesh(obsGeometry, obsMaterial);
+      obstacle.position.set((Math.random() * 6) - 3, 0.5, -50);
+      scene.add(obstacle);
+      obstacles.push(obstacle);
     }
 
     function animate() {
-      if (!gameRunning) return;
-
       requestAnimationFrame(animate);
 
-      obstacles.forEach(obs => {
-        obs.position.z += 0.5;
+      if (gameRunning) {
+        obstacles.forEach((obs, i) => {
+          obs.position.z += 0.3;
+          if (obs.position.z > 20) {
+            scene.remove(obs);
+            obstacles.splice(i, 1);
+          }
 
-        // Colisão
-        if (
-          Math.abs(obs.position.z - car.position.z) < 1.5 &&
-          Math.abs(obs.position.x - car.position.x) < 1
-        ) {
-          gameRunning = false;
-          document.getElementById("gameOver").style.display = "block";
-        }
-      });
+          if (
+            Math.abs(car.position.x - obs.position.x) < 2 &&
+            Math.abs(car.position.z - obs.position.z) < 2
+          ) {
+            explosao.currentTime = 0;
+            explosao.play().catch(err => console.log("Erro ao tocar explosão:", err));
+            gameOver();
+          }
+        });
+      }
 
       renderer.render(scene, camera);
     }
+
+    function gameOver() {
+      gameRunning = false;
+      document.getElementById("gameOver").style.display = "block";
+      soundtrack.pause();
+    }
+
+    document.addEventListener("keydown", (e) => {
+      if (!gameRunning) return;
+      if (e.key === "ArrowLeft" && car.position.x > -4) car.position.x -= 0.5;
+      if (e.key === "ArrowRight" && car.position.x < 4) car.position.x += 0.5;
+      if (e.key.toLowerCase() === "b") {
+        buzina.currentTime = 0;
+        buzina.play().catch(err => console.log("Erro ao tocar buzina:", err));
+      }
+    });
+
+    // Botão inicia o jogo + música
+    document.getElementById("startBtn").addEventListener("click", () => {
+      document.getElementById("startBtn").style.display = "none";
+      gameRunning = true;
+      soundtrack.play().catch(err => console.log("Erro ao tocar trilha:", err));
+    });
+
+    init();
   </script>
 </body>
 </html>
