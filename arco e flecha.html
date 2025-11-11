@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>🏹 Arqueiro - Desafio do Alvo</title>
+<style>
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: linear-gradient(#9ddffb, #7ec850);
+    font-family: "Segoe UI", sans-serif;
+  }
+  canvas {
+    display: block;
+    margin: auto;
+    border: 3px solid #333;
+    background: #a8e07d;
+  }
+  #hud {
+    position: absolute;
+    top: 15px;
+    left: 15px;
+    background: rgba(255,255,255,0.9);
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-size: 18px;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.3);
+  }
+  #hud span {
+    font-weight: bold;
+    color: #1a4b1a;
+  }
+  #reiniciarBtn {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    padding: 10px 18px;
+    font-size: 16px;
+    border: none;
+    border-radius: 8px;
+    background: #2d7d2d;
+    color: white;
+    cursor: pointer;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+    transition: 0.2s;
+  }
+  #reiniciarBtn:hover {
+    background: #3fa43f;
+  }
+</style>
+</head>
+<body>
+<canvas id="gameCanvas" width="1100" height="600"></canvas>
+
+<div id="hud">
+  🎯 Pontos: <span id="pontos">0</span> | 💨 Vento: <span id="vento">0.00</span>
+  <br>Use o mouse para mirar e clique para atirar!
+</div>
+
+<button id="reiniciarBtn">🔁 Reiniciar</button>
+
+<audio id="somTiro" src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_21a020ff76.mp3?filename=bow-release-14672.mp3"></audio>
+<audio id="somAcerto" src="https://cdn.pixabay.com/download/audio/2021/08/04/audio_5689f3b2d9.mp3?filename=hit-103365.mp3"></audio>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const somTiro = document.getElementById('somTiro');
+const somAcerto = document.getElementById('somAcerto');
+const btnReiniciar = document.getElementById('reiniciarBtn');
+
+let arqueiro = { x: 120, y: canvas.height - 100, ang: 0 };
+let flechas = [];
+let alvo = { x: canvas.width - 150, y: canvas.height / 2, raio: 45 };
+let pontos = 0;
+let vento = 0;
+let particulasVento = [];
+
+function gerarVento() {
+  vento = (Math.random() * 2 - 1) * 0.08; // vento entre -0.08 e 0.08
+  document.getElementById("vento").textContent = vento.toFixed(2);
+  particulasVento = [];
+  for (let i = 0; i < 50; i++) {
+    particulasVento.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      size: 2 + Math.random() * 2,
+      speed: vento * 50,
+    });
+  }
+}
+gerarVento();
+setInterval(gerarVento, 5000);
+
+canvas.addEventListener('mousemove', e => {
+  const dx = e.offsetX - arqueiro.x;
+  const dy = e.offsetY - arqueiro.y;
+  arqueiro.ang = Math.atan2(dy, dx);
+});
+
+canvas.addEventListener('click', () => {
+  somTiro.currentTime = 0;
+  somTiro.play();
+  flechas.push({
+    x: arqueiro.x,
+    y: arqueiro.y,
+    vx: Math.cos(arqueiro.ang) * 12,
+    vy: Math.sin(arqueiro.ang) * 12,
+    ativa: true,
+  });
+});
+
+// 🔁 Função para reiniciar o jogo
+btnReiniciar.addEventListener('click', () => {
+  pontos = 0;
+  flechas = [];
+  gerarVento();
+  document.getElementById("pontos").textContent = pontos;
+});
+
+function atualizar() {
+  // atualiza vento visual
+  for (let p of particulasVento) {
+    p.x += vento * 60;
+    p.y += Math.sin(p.x / 50) * 0.5;
+    if (p.x < 0) p.x = canvas.width;
+    if (p.x > canvas.width) p.x = 0;
+  }
+
+  // física da flecha
+  for (let f of flechas) {
+    if (!f.ativa) continue;
+    f.x += f.vx;
+    f.y += f.vy;
+    f.vy += 0.15; // gravidade
+    f.vx += vento; // vento
+    if (f.y > canvas.height - 30) f.ativa = false;
+
+    // colisão alvo
+    const dx = f.x - alvo.x;
+    const dy = f.y - alvo.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < alvo.raio) {
+      f.ativa = false;
+      const ganho = Math.max(5, Math.round((alvo.raio - dist) * 2));
+      pontos += ganho;
+      somAcerto.currentTime = 0;
+      somAcerto.play();
+      document.getElementById("pontos").textContent = pontos;
+    }
+  }
+
+  flechas = flechas.filter(f => f.ativa);
+}
+
+function desenhar() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // chão
+  ctx.fillStyle = "#58a045";
+  ctx.fillRect(0, canvas.height - 40, canvas.width, 40);
+
+  // vento (partículas)
+  ctx.fillStyle = "rgba(255,255,255,0.6)";
+  for (let p of particulasVento) {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // arqueiro
+  ctx.save();
+  ctx.translate(arqueiro.x, arqueiro.y);
+  ctx.rotate(arqueiro.ang);
+  ctx.fillStyle = "#5c3a1d";
+  ctx.fillRect(-10, -5, 30, 10); // arco
+  ctx.beginPath(); // corpo
+  ctx.fillStyle = "#222";
+  ctx.arc(-20, 0, 10, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // alvo
+  const cores = ["white", "red", "yellow"];
+  [1, 0.66, 0.33].forEach((r, i) => {
+    ctx.beginPath();
+    ctx.arc(alvo.x, alvo.y, alvo.raio * r, 0, Math.PI * 2);
+    ctx.fillStyle = cores[i];
+    ctx.fill();
+  });
+
+  // flechas
+  ctx.strokeStyle = "#000";
+  ctx.lineWidth = 2;
+  for (let f of flechas) {
+    ctx.beginPath();
+    ctx.moveTo(f.x, f.y);
+    ctx.lineTo(f.x - f.vx * 2, f.y - f.vy * 2);
+    ctx.stroke();
+  }
+}
+
+function loop() {
+  atualizar();
+  desenhar();
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>
